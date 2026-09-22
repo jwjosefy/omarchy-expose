@@ -16,7 +16,7 @@ Item {
     property var manifest: null
     readonly property alias windowBorders: windowBorders
     WindowBorders { id: windowBorders }
-    readonly property string pluginId: String((root.manifest && root.manifest.id) || "expose.window-overview")
+    readonly property string pluginId: String((root.manifest && root.manifest.id) || "expose.switch")
     readonly property string pluginDir: String((root.manifest && root.manifest.__sourceDir)
         || (Quickshell.env("HOME") + "/.config/omarchy/plugins/" + root.pluginId))
     readonly property var pluginEntry: pluginSettings.entry
@@ -1664,15 +1664,15 @@ Item {
                 windowBorders.refresh();
             if (event.name !== "custom")
                 return;
-            if (event.data === "expose.window-overview:toggle")
+            if (event.data === "expose.switch:toggle")
                 root.toggle();
-            else if (event.data === "expose.window-overview:alttab-open")
+            else if (event.data === "expose.switch:open")
                 root.beginAltTabChord();
-            else if (event.data === "expose.window-overview:alttab-next")
+            else if (event.data === "expose.switch:next")
                 root.stepAltTab(1);
-            else if (event.data === "expose.window-overview:alttab-prev")
+            else if (event.data === "expose.switch:prev")
                 root.stepAltTab(-1);
-            else if (event.data === "expose.window-overview:alttab-release")
+            else if (event.data === "expose.switch:release")
                 root.releaseAltTab();
         }
     }
@@ -1684,7 +1684,7 @@ Item {
     }
 
     IpcHandler {
-        target: "expose"
+        target: "expose-switch"
         function open(): string {
             // Must not be root.toggle(): that makes "open" a duplicate of
             // "toggle", so calling open on an already-open overview closes it.
@@ -1885,7 +1885,7 @@ Item {
                 }
             }
             exclusionMode: ExclusionMode.Ignore
-            WlrLayershell.namespace: "expose-hot-corner"
+            WlrLayershell.namespace: "expose-switch-hot-corner"
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.exclusiveZone: -1
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
@@ -1921,7 +1921,7 @@ Item {
             }
             color: "transparent"
             exclusionMode: ExclusionMode.Ignore
-            WlrLayershell.namespace: "expose-window-overview"
+            WlrLayershell.namespace: "expose-switch"
             WlrLayershell.layer: WlrLayer.Overlay
             HyprlandWindow.opacity: root.motionProgress
             BackgroundEffect.blurRegion: root.effectiveBackgroundBlur > 0 // qmllint disable missing-type

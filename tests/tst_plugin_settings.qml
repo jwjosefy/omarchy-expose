@@ -14,7 +14,7 @@ TestCase {
     Component {
         id: settingsComponent
         PluginSettings {
-            pluginId: "expose.window-overview"
+            pluginId: "expose.switch"
             shell: QtObject {
                 // Like PluginShellApi, this deliberately has no shellConfig.
                 function updateEntryInline(id, settings) {
@@ -38,7 +38,7 @@ TestCase {
     }
 
     function init() {
-        hostEntry = {id: "expose.window-overview", hotCornerEnabled: false,
+        hostEntry = {id: "expose.switch", hotCornerEnabled: false,
             backgroundDim: 50, unknownSetting: {preserve: true}};
         writes = [];
         rejectWrites = false;

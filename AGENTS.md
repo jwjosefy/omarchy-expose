@@ -1,5 +1,10 @@
 # Repository guidance
 
+This tree is the `expose.switch` fork. It is not the published Exposé
+catalog entry. The Exposé release notes below describe the upstream project.
+
+
+
 ## Release workflow
 
 - Treat `manifest.json` as the release source of truth and bump its semantic

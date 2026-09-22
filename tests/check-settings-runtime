@@ -18,7 +18,7 @@ cp "$shell_dir/Commons/Util.qml" "$test_dir/Commons/"
 printf 'singleton Util 1.0 Util.qml\n' > "$test_dir/Commons/qmldir"
 
 cat > "$test_dir/config.json" <<'EOF'
-{"version":1,"bar":{"layout":{"left":[{"id":"other.widget","keep":true}],"center":[],"right":[]}},"plugins":[{"id":"other.plugin","keep":true},{"id":"expose.window-overview","hotCornerEnabled":false,"backgroundDim":50,"unknownSetting":{"preserve":true}}]}
+{"version":1,"bar":{"layout":{"left":[{"id":"other.widget","keep":true}],"center":[],"right":[]}},"plugins":[{"id":"other.plugin","keep":true},{"id":"expose.switch","hotCornerEnabled":false,"backgroundDim":50,"unknownSetting":{"preserve":true}}]}
 EOF
 
 while IFS= read -r line; do

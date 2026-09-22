@@ -1,7 +1,7 @@
 return function(options)
   options = options or {}
 
-  local namespace = "expose-window-overview"
+  local namespace = "expose-switch"
   local expose_layers = #hl.get_layers({ namespace = namespace })
   local workspace_gesture_enabled
 

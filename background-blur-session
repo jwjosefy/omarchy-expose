@@ -29,7 +29,7 @@ run_hyprctl() {
 
 # The overview owns its opacity transition. Prevent Hyprland from snapshotting
 # the unmapped layer and applying a second fade after the QML animation ends.
-run_hyprctl eval 'if rawget(_G, "__omarchy_expose_layer_rule") == nil then __omarchy_expose_layer_rule = hl.layer_rule({ name = "omarchy-expose-layer", match = { namespace = "^expose-window-overview$" }, no_anim = true, animation = "none" }) end' >/dev/null
+run_hyprctl eval 'if rawget(_G, "__omarchy_expose_switch_layer_rule") == nil then __omarchy_expose_switch_layer_rule = hl.layer_rule({ name = "omarchy-expose-switch-layer", match = { namespace = "^expose-switch$" }, no_anim = true, animation = "none" }) end' >/dev/null
 
 IFS=$'\t' read -r saved_enabled saved_size saved_contrast < <(
   run_hyprctl --batch -j 'getoption decoration:blur:enabled; getoption decoration:blur:size; getoption decoration:blur:contrast' |

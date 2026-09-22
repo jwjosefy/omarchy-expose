@@ -1,6 +1,8 @@
-# Exposé for Omarchy
+# Exposé Switch
 
-macOS-style Exposé for Omarchy: one key or a hot corner shows every open window as a live preview. Type to search, press Space to Quick Look, press Enter to launch.
+Exposé for Omarchy with an Alt-Tab chord. Tap Alt+Tab and the overview stays open. Keep pressing Tab while Alt is held to move through the grid, then release Alt to switch to that window. Shift+Tab moves backwards. Search, arrows, Quick Look, and the hot corner still work after a tap.
+
+This is a fork of [Exposé](https://github.com/kristofferR/omarchy-expose) 4.3.0 by Kristoffer Risanger. The grid is Exposé. The hold-and-release gesture is the OmaSwitch idea, applied to that grid.
 
 ![Exposé demo](https://github.com/kristofferR/omarchy-expose/releases/download/v4.0.0/demo.gif)
 
@@ -31,22 +33,39 @@ The underlying Quickshell, Hyprland, Bash, and coreutils support ships with Omar
 
 ## Install
 
+Disable `expose.window-overview` first if it is enabled. The two plugins are both full-screen overlays and will fight over the keyboard.
+
 ```sh
-omarchy plugin add https://github.com/kristofferR/omarchy-expose.git --enable
+omarchy plugin disable expose.window-overview
+omarchy plugin add <git-url-or-local-path> --enable
 ```
 
-That's it: the top-left hot corner works right away. Optionally, bind a key in `~/.config/hypr/bindings.lua`, then run `hyprctl reload`:
+Then load the chord from `~/.config/hypr/bindings.lua` and reload Hyprland:
 
 ```lua
-o.bind("SUPER + A", "Exposé", hl.dsp.event("expose.window-overview:toggle"))
+dofile(os.getenv("HOME") .. "/.config/omarchy/plugins/expose.switch/bindings.lua")
 ```
 
-Any unused chord works. Avoid modifier-only bindings such as standalone Super; Hyprland cannot reliably distinguish them from the start of normal Super shortcuts.
+```sh
+hyprctl reload
+```
 
-To keep workspace swipes from changing the desktop behind Exposé, replace your workspace gesture in `~/.config/hypr/input.lua` with:
+That file replaces Omarchy's Alt+Tab and Alt+Shift+Tab bindings. It unbinds them itself. The hot corner works without the `dofile`.
+
+Alt+Tab opens the overview and leaves it up. Another Tab while Alt is still held moves to the next card in reading order. Shift+Tab moves back. Releasing Alt switches to the selected window only after one of those moves. Typing, the arrow keys, a click, or Escape cancels the confirmation, so releasing Alt then leaves the overview open. Tab without Alt still toggles all windows against the current workspace.
+
+To open and close without the chord, bind any unused key:
 
 ```lua
-local expose_gesture_path = os.getenv("HOME") .. "/.config/omarchy/plugins/expose.window-overview/workspace-gesture.lua"
+o.bind("SUPER + A", "Exposé Switch", hl.dsp.event("expose.switch:toggle"))
+```
+
+Avoid modifier-only bindings such as standalone Super; Hyprland cannot reliably distinguish them from the start of normal Super shortcuts.
+
+To keep workspace swipes from changing the desktop behind the overview, replace your workspace gesture in `~/.config/hypr/input.lua` with:
+
+```lua
+local expose_gesture_path = os.getenv("HOME") .. "/.config/omarchy/plugins/expose.switch/workspace-gesture.lua"
 local expose_gesture_loader = loadfile(expose_gesture_path)
 if expose_gesture_loader then
   expose_gesture_loader()({ fingers = 4, scale = 0.5 })
@@ -60,19 +79,19 @@ Adjust `fingers` and `scale` to match your preferred gesture. Only the workspace
 ### Update
 
 ```sh
-omarchy plugin update expose.window-overview --yes
+omarchy plugin update expose.switch --yes
 ```
 
 ### Remove
 
-Delete the Exposé binding from `~/.config/hypr/bindings.lua`, then:
+Delete the `dofile` line from `~/.config/hypr/bindings.lua`, then:
 
 ```sh
-omarchy plugin remove expose.window-overview --yes
 hyprctl reload
+omarchy plugin remove expose.switch --yes
 ```
 
-Removal leaves nothing behind: Exposé keeps no files outside its plugin directory and its entry in `~/.config/omarchy/shell.json`.
+The next reload restores Omarchy's Alt+Tab bindings. Removal leaves nothing behind outside the plugin directory and its entry in `~/.config/omarchy/shell.json`.
 
 ## Controls
 
@@ -109,27 +128,27 @@ Open **Settings** from the footer while the overview is open. It is fully keyboa
 Every reversible setting is also scriptable:
 
 ```sh
-omarchy-shell expose toggle                      # also: open, close
-omarchy-shell expose settings toggle             # also: open, close
-omarchy-shell expose animationStyle original     # original | fade | zoom | slide
-omarchy-shell expose animationDuration original 190    # linked in/out, 100-800 ms
-omarchy-shell expose animationDurationIn original 190  # separate opening speed
-omarchy-shell expose animationDurationOut original 190 # separate closing speed
-omarchy-shell expose slideDirection left         # left | right | up | down, both halves
-omarchy-shell expose slideDirectionIn left       # separate opening side, also splits slide timing
-omarchy-shell expose slideDirectionOut right     # separate closing side, also splits slide timing
-omarchy-shell expose backgroundBlur 4            # 0-20
-omarchy-shell expose backgroundDim 6             # 0-90
-omarchy-shell expose previewPlacement in-place   # in-place | centered
-omarchy-shell expose windowFooterStyle floating  # floating | integrated | overlay | centered
-omarchy-shell expose multiMonitorMode mirrored   # mirrored | per-monitor
-omarchy-shell expose hotCorner on                # on | off
-omarchy-shell expose hotCornerPosition top-left  # top-left | top-right | bottom-left | bottom-right
-omarchy-shell expose hotCornerDelay 0            # 0-1000 ms of dwell before it fires
-omarchy-shell expose moveCursorToWindow on       # on | off
+omarchy-shell expose-switch toggle                      # also: open, close
+omarchy-shell expose-switch settings toggle             # also: open, close
+omarchy-shell expose-switch animationStyle original     # original | fade | zoom | slide
+omarchy-shell expose-switch animationDuration original 190    # linked in/out, 100-800 ms
+omarchy-shell expose-switch animationDurationIn original 190  # separate opening speed
+omarchy-shell expose-switch animationDurationOut original 190 # separate closing speed
+omarchy-shell expose-switch slideDirection left         # left | right | up | down, both halves
+omarchy-shell expose-switch slideDirectionIn left       # separate opening side, also splits slide timing
+omarchy-shell expose-switch slideDirectionOut right     # separate closing side, also splits slide timing
+omarchy-shell expose-switch backgroundBlur 4            # 0-20
+omarchy-shell expose-switch backgroundDim 6             # 0-90
+omarchy-shell expose-switch previewPlacement in-place   # in-place | centered
+omarchy-shell expose-switch windowFooterStyle floating  # floating | integrated | overlay | centered
+omarchy-shell expose-switch multiMonitorMode mirrored   # mirrored | per-monitor
+omarchy-shell expose-switch hotCorner on                # on | off
+omarchy-shell expose-switch hotCornerPosition top-left  # top-left | top-right | bottom-left | bottom-right
+omarchy-shell expose-switch hotCornerDelay 0            # 0-1000 ms of dwell before it fires
+omarchy-shell expose-switch moveCursorToWindow on       # on | off
 ```
 
-After hiding the bottom text, you can restore it while Settings remains open. If you close Settings first, edit `~/.config/omarchy/shell.json` and set `"showFooter": true` in the `expose.window-overview` plugin entry.
+After hiding the bottom text, you can restore it while Settings remains open. If you close Settings first, edit `~/.config/omarchy/shell.json` and set `"showFooter": true` in the `expose.switch` plugin entry.
 
 ## Security and system changes
 
@@ -145,7 +164,7 @@ Exposé runs unsandboxed inside Omarchy Shell with your user's permissions.
 - **No thumbnails:** verify Hyprland exposes toplevel-export support and no screen-capture policy blocks Quickshell. Cards stay usable with fallback labels.
 - **Workspace says “—”:** the native Hyprland model has not associated that Wayland toplevel yet. Very short-lived windows can briefly appear this way; restart Omarchy Shell if a normal window remains unassociated.
 - **Plugin not listed:** run `omarchy plugin validate .`, then `omarchy-shell shell rescanPlugins`.
-- **Shortcut does nothing:** run `hyprctl reload`, check `hyprctl configerrors`, and test `hyprctl dispatch 'hl.dsp.event("expose.window-overview:toggle")'` directly.
+- **Shortcut does nothing:** run `hyprctl reload`, check `hyprctl configerrors`, and test `hyprctl dispatch 'hl.dsp.event("expose.switch:toggle")'` directly.
 
 ## Credits
 

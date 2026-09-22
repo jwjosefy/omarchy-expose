@@ -15,7 +15,7 @@ ShellRoot {
     }
     PluginShellApi {
         id: api
-        pluginId: "expose.window-overview"
+        pluginId: "expose.switch"
         _updateSettings: function(id, settings) { return shell.updateEntryInline(id, settings); }
     }
     FileView {
@@ -28,7 +28,7 @@ ShellRoot {
     }
     PluginSettings {
         id: settings
-        pluginId: "expose.window-overview"
+        pluginId: "expose.switch"
         shell: api
         onReloadRequested: Qt.callLater(reader.reload)
     }
