@@ -160,6 +160,10 @@ Item {
     property string workspaceScope: "all"
     property int selectedIndex: 0
     property int hoveredIndex: -1
+    // "" | "held" (Alt+Tab opened, no extra step) | "armed" (Tab moved selection).
+    property string altTabChord: ""
+    property var altTabLayout: null
+    property var altTabLayoutToplevels: null
     property int previewIndex: -1
     property int previewExitIndex: -1
     property bool previewSlowMotion: false
@@ -311,6 +315,9 @@ Item {
     }
 
     function startDismiss(notifyShell) {
+        root.clearAltTabChord();
+        root.altTabLayout = null;
+        root.altTabLayoutToplevels = null;
         root.openingPending = false;
         root.closeSettings();
         root.hoveredIndex = -1;
@@ -339,6 +346,95 @@ Item {
 
     function toggle() {
         (root.opened || root.openingPending) ? root.dismiss() : root.open("{}");
+    }
+
+    function clearAltTabChord() {
+        root.altTabChord = "";
+    }
+
+    function altTabListsMatch(layoutToplevels) {
+        var filtered = root.filteredToplevels;
+        if (!layoutToplevels || layoutToplevels.length !== filtered.length)
+            return false;
+        for (var index = 0; index < filtered.length; index++) {
+            if (layoutToplevels[index] !== filtered[index])
+                return false;
+        }
+        return true;
+    }
+
+    // Reading order of the grid. Cards in one row are not stored on a shared
+    // baseline, so centers that sit within the same band sort left to right.
+    function altTabVisualOrder() {
+        var count = root.filteredToplevels.length;
+        var order = [];
+        for (var index = 0; index < count; index++)
+            order.push(index);
+        var layout = root.altTabLayout;
+        if (!layout || layout.length !== count || !root.altTabListsMatch(root.altTabLayoutToplevels))
+            return order;
+        var cells = [];
+        for (var cellIndex = 0; cellIndex < count; cellIndex++) {
+            var cell = layout[cellIndex];
+            if (!cell || cell.x === undefined || cell.y === undefined)
+                return order;
+            cells.push({
+                index: cellIndex,
+                x: cell.x,
+                y: cell.y + (cell.height || 0) / 2,
+                band: cell.height || 1
+            });
+        }
+        cells.sort(function (a, b) {
+            var band = Math.min(a.band, b.band) * 0.45;
+            if (Math.abs(a.y - b.y) > band)
+                return a.y - b.y;
+            return a.x - b.x;
+        });
+        var visual = [];
+        for (var sorted = 0; sorted < cells.length; sorted++)
+            visual.push(cells[sorted].index);
+        return visual;
+    }
+
+    function beginAltTabChord() {
+        if (!root.opened && !root.openingPending)
+            root.open("{}");
+        root.altTabChord = "held";
+    }
+
+    function stepAltTab(direction) {
+        if (!root.opened && !root.openingPending) {
+            root.beginAltTabChord();
+            return;
+        }
+        if (root.altTabChord === "")
+            root.altTabChord = "held";
+        var order = root.altTabVisualOrder();
+        if (order.length < 2)
+            return;
+        var current = root.selectedIndex;
+        var pos = order.indexOf(current);
+        if (pos < 0)
+            pos = 0;
+        var step = direction < 0 ? order.length - 1 : 1;
+        var nextIndex = order[(pos + step) % order.length];
+        if (nextIndex === current)
+            return;
+        root.hoveredIndex = -1;
+        root.clearPreview();
+        root.selectedIndex = nextIndex;
+        root.altTabChord = "armed";
+    }
+
+    function releaseAltTab() {
+        if (root.altTabChord !== "armed") {
+            root.clearAltTabChord();
+            return;
+        }
+        var top = root.filteredToplevels[root.selectedIndex];
+        root.clearAltTabChord();
+        root.activate(top);
     }
 
     function requestedBackgroundBlur() {
@@ -609,6 +705,7 @@ Item {
     }
 
     function openSettings() {
+        root.clearAltTabChord();
         if (!root.surfaceMounted)
             root.open("{}");
         root.closeFooterHideConfirmation();
@@ -918,6 +1015,7 @@ Item {
     }
 
     function requestClose(top) {
+        root.clearAltTabChord();
         var wayland = WindowModel.waylandFor(top);
         if (!wayland || typeof wayland.close !== "function")
             return;
@@ -1553,17 +1651,29 @@ Item {
         function onFocusedMonitorChanged() { root.handleDisplayStateChanged(); }
         function onFocusedWorkspaceChanged() { root.handleDisplayStateChanged(); }
         function onActiveToplevelChanged() {
-            if (!root.opened)
+            if (!root.opened || root.altTabChord !== "")
                 return;
             var index = root.filteredToplevels.indexOf(Hyprland.activeToplevel);
             if (index >= 0)
                 root.selectedIndex = index;
         }
         function onRawEvent(event) {
-            if (event && event.name === "configreloaded")
+            if (!event)
+                return;
+            if (event.name === "configreloaded")
                 windowBorders.refresh();
-            if (event && event.name === "custom" && event.data === "expose.window-overview:toggle")
+            if (event.name !== "custom")
+                return;
+            if (event.data === "expose.window-overview:toggle")
                 root.toggle();
+            else if (event.data === "expose.window-overview:alttab-open")
+                root.beginAltTabChord();
+            else if (event.data === "expose.window-overview:alttab-next")
+                root.stepAltTab(1);
+            else if (event.data === "expose.window-overview:alttab-prev")
+                root.stepAltTab(-1);
+            else if (event.data === "expose.window-overview:alttab-release")
+                root.releaseAltTab();
         }
     }
 
@@ -1912,6 +2022,8 @@ Item {
                 }
                 Keys.priority: Keys.BeforeItem
                 Keys.onPressed: function (event) {
+                    if (root.altTabChord !== "")
+                        root.clearAltTabChord();
                     if (root.settingsOpen
                             && !root.footerHideConfirmationOpen
                             && event.key >= Qt.Key_1
@@ -1929,6 +2041,7 @@ Item {
                 MouseArea {
                     anchors.fill: parent
                     onClicked: {
+                        root.clearAltTabChord();
                         if (root.previewIndex >= 0 || root.previewExitIndex >= 0)
                             root.clearPreview();
                         else
@@ -2028,6 +2141,14 @@ Item {
                                 ? overviewWindow.screen.width / overviewWindow.screen.height
                                 : 0;
                             return root.computeWindowLayout(overviewWindow.screenToplevels, width, height, Style.space(64), Style.spacing.sm, root.windowFooterHeight, screenRatio);
+                        }
+                        onWindowLayoutChanged: {
+                            root.altTabLayout = windowLayout;
+                            root.altTabLayoutToplevels = overviewWindow.screenToplevels;
+                        }
+                        Component.onDestruction: {
+                            root.altTabLayout = null;
+                            root.altTabLayoutToplevels = null;
                         }
 
                         Item {
