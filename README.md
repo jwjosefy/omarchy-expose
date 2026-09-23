@@ -2,7 +2,7 @@
 
 Exposé for Omarchy with an Alt-Tab chord. Tap Alt+Tab and the overview stays open. Keep pressing Tab while Alt is held to move through the grid, then release Alt to switch to that window. Shift+Tab moves backwards. Search, arrows, Quick Look, and the hot corner still work after a tap.
 
-This is a fork of [Exposé](https://github.com/kristofferR/omarchy-expose) 4.3.0 by Kristoffer Risanger. The grid is Exposé. The hold-and-release gesture is the OmaSwitch idea, applied to that grid.
+This is a fork of [Exposé](https://github.com/kristofferR/omarchy-expose) by Kristoffer Risanger (`@kristofferR`). The grid is Exposé. Alt+Tab follows [OmaSwitch](https://github.com/piyush97/omaswitch) by piyush97: tap to keep the overview open, keep pressing Tab to move, release Alt to switch.
 
 ![Exposé demo](https://github.com/kristofferR/omarchy-expose/releases/download/v4.0.0/demo.gif)
 
@@ -18,9 +18,9 @@ This is a fork of [Exposé](https://github.com/kristofferR/omarchy-expose) 4.3.0
 
 Everything is tunable from the built-in Settings panel and over IPC, and changes apply instantly.
 
-## ❤️ Support the project
+## ❤️ Support Exposé
 
-Enjoying Exposé for Omarchy? Sponsoring its development is a lovely way to say thanks and help keep the project growing.
+The grid comes from Kristoffer Risanger's Exposé. Sponsoring that project is a way to thank him for it.
 
 [![Sponsor on GitHub](https://img.shields.io/badge/Sponsor_on_GitHub-%E2%99%A1-ec6cb9?style=for-the-badge)](https://github.com/sponsors/kristofferR)
 
@@ -37,20 +37,11 @@ Disable `expose.window-overview` first if it is enabled. The two plugins are bot
 
 ```sh
 omarchy plugin disable expose.window-overview
-omarchy plugin add <git-url-or-local-path> --enable
+omarchy plugin add https://github.com/jwjosefy/omarchy-expose.git --enable
+~/.config/omarchy/plugins/expose.switch/install-bindings && hyprctl reload
 ```
 
-Then load the chord from `~/.config/hypr/bindings.lua` and reload Hyprland:
-
-```lua
-dofile(os.getenv("HOME") .. "/.config/omarchy/plugins/expose.switch/bindings.lua")
-```
-
-```sh
-hyprctl reload
-```
-
-That file replaces Omarchy's Alt+Tab and Alt+Shift+Tab bindings. It unbinds them itself. The hot corner works without the `dofile`.
+`install-bindings` appends one `dofile` line to `~/.config/hypr/bindings.lua` and saves a `bindings.lua.bak.<epoch>` copy first. If that file already imports Exposé Switch, or already binds Alt+Tab to something else, the script stops and leaves it unchanged. The hot corner works without this command. The Alt+Tab behavior does not.
 
 Alt+Tab opens the overview and leaves it up. Another Tab while Alt is still held moves to the next card in reading order. Shift+Tab moves back. Releasing Alt switches to the selected window only after one of those moves. Typing, the arrow keys, a click, or Escape cancels the confirmation, so releasing Alt then leaves the overview open. Tab without Alt still toggles all windows against the current workspace.
 
@@ -61,20 +52,6 @@ o.bind("SUPER + A", "Exposé Switch", hl.dsp.event("expose.switch:toggle"))
 ```
 
 Avoid modifier-only bindings such as standalone Super; Hyprland cannot reliably distinguish them from the start of normal Super shortcuts.
-
-To keep workspace swipes from changing the desktop behind the overview, replace your workspace gesture in `~/.config/hypr/input.lua` with:
-
-```lua
-local expose_gesture_path = os.getenv("HOME") .. "/.config/omarchy/plugins/expose.switch/workspace-gesture.lua"
-local expose_gesture_loader = loadfile(expose_gesture_path)
-if expose_gesture_loader then
-  expose_gesture_loader()({ fingers = 4, scale = 0.5 })
-else
-  hl.gesture({ fingers = 4, direction = "horizontal", scale = 0.5, action = "workspace" })
-end
-```
-
-Adjust `fingers` and `scale` to match your preferred gesture. Only the workspace gesture is swallowed while Exposé is open; media keys and other compositor shortcuts keep working.
 
 ### Update
 
@@ -157,6 +134,7 @@ Exposé runs unsandboxed inside Omarchy Shell with your user's permissions.
 - Its helpers are plain Bash calling `hyprctl`, `jq`, `sleep`, and `timeout`.
 - It reads window, workspace, and monitor state from Quickshell's native Hyprland model, activates or closes the windows you select, and temporarily raises Hyprland's blur while open, restoring the previous value on close.
 - Settings writes touch only the plugin's entry in `~/.config/omarchy/shell.json`.
+- `install-bindings` edits `~/.config/hypr/bindings.lua` only when you run it. Enabling the plugin does not.
 - No network, no privilege escalation, no package installs, no services.
 
 ## Troubleshooting
@@ -168,7 +146,9 @@ Exposé runs unsandboxed inside Omarchy Shell with your user's permissions.
 
 ## Credits
 
-Based on [Bird's Eye](https://github.com/harel/omarchy-birdseye) by Harel Malka.
+The window grid and most of this repository are [Exposé](https://github.com/kristofferR/omarchy-expose) by Kristoffer Risanger (`@kristofferR`), MIT. Exposé is based on [Bird's Eye](https://github.com/harel/omarchy-birdseye) by Harel Malka. Those copyright notices stay in `LICENSE`.
+
+Alt+Tab — tap to keep the overview open, Tab and Shift+Tab to move, release Alt to switch — follows [OmaSwitch](https://github.com/piyush97/omaswitch) by piyush97 (`piyush.omaswitch`), MIT. This repository does not copy OmaSwitch's code.
 
 ## License
 

@@ -1,0 +1,34 @@
+#!/bin/bash
+# Add the Exposé Switch Alt+Tab import to the user's Hyprland bindings.
+# Safe to run again: an existing import is left alone.
+
+set -euo pipefail
+
+bindings="${XDG_CONFIG_HOME:-$HOME/.config}/hypr/bindings.lua"
+marker='expose.switch/bindings.lua'
+dofile_line='dofile(os.getenv("HOME") .. "/.config/omarchy/plugins/expose.switch/bindings.lua")'
+
+if [[ ! -f $bindings ]]; then
+  echo "install-bindings: $bindings was not found" >&2
+  exit 1
+fi
+
+active=$(grep -E -v '^[[:space:]]*--' "$bindings" || true)
+
+if grep -F -q "$marker" <<<"$active"; then
+  echo "install-bindings: $bindings already imports Exposé Switch. Nothing to change."
+  exit 0
+fi
+
+if grep -E -q '"ALT \+ (SHIFT \+ )?TAB"' <<<"$active"; then
+  echo "install-bindings: $bindings already binds Alt+Tab to something else. Nothing was changed." >&2
+  echo "Remove or comment that bind, then run this script again." >&2
+  exit 1
+fi
+
+backup="$bindings.bak.$(date +%s)"
+cp -- "$bindings" "$backup"
+printf '\n-- Exposé Switch. Replaces Alt+Tab and Alt+Shift+Tab.\n%s\n' "$dofile_line" >>"$bindings"
+echo "install-bindings: added the Exposé Switch import to $bindings"
+echo "install-bindings: backup saved at $backup"
+echo "Reload Hyprland with: hyprctl reload"
