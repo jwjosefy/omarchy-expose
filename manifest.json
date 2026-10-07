@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "expose.switch",
   "name": "Exposé Switch",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": "jwjosefy",
   "license": "MIT",
   "description": "Exposé grid with OmaSwitch-style Alt+Tab: tap to keep it open, keep pressing Tab, release Alt to switch. Fork of kristofferR/omarchy-expose.",

@@ -10,6 +10,7 @@ This is a fork of [Exposé](https://github.com/kristofferR/omarchy-expose) by Kr
 
 - **Live previews.** Cards are real screencopy views, so videos keep playing and terminals keep scrolling. The Omarchy desktop behind the grid stays live too.
 - **Quick Look.** Space enlarges any preview and restores it again. Shift+Space does it in slow motion, like the classic macOS Easter egg.
+- **Most recent first.** Cards are laid out in reading order from the most recently used window, so Alt+Tab+Tab goes back to the previous window. Exposé's original width-balanced packing is still available.
 - **Search.** Just start typing to filter windows by title or application.
 - **Workspace scope.** Press Tab to switch between every window and windows on the current workspace. Per-monitor mode evaluates the current workspace of the selected display.
 - **Multi-monitor layouts.** The overview opens only on the focused display (or the display whose hot corner was used). Same overview shows every window there; per monitor keeps that display's own windows.
@@ -101,6 +102,7 @@ Open **Settings** from the footer while the overview is open. It is fully keyboa
 - Bottom text visibility. Hiding it requires confirmation and removes the Settings link
 - Hot corner on/off, position (disable the same corner in other hot-corner plugins to avoid overlap), and activation delay (0–1000 ms of pointer dwell before it fires; 0 is instant)
 - Move cursor to the activated window on/off
+- Window order (IPC only): most recent first (default) or Exposé's packed layout
 
 Every reversible setting is also scriptable:
 
@@ -119,11 +121,14 @@ omarchy-shell expose-switch backgroundDim 6             # 0-90
 omarchy-shell expose-switch previewPlacement in-place   # in-place | centered
 omarchy-shell expose-switch windowFooterStyle floating  # floating | integrated | overlay | centered
 omarchy-shell expose-switch multiMonitorMode mirrored   # mirrored | per-monitor
+omarchy-shell expose-switch windowOrder recent          # recent | packed
 omarchy-shell expose-switch hotCorner on                # on | off
 omarchy-shell expose-switch hotCornerPosition top-left  # top-left | top-right | bottom-left | bottom-right
 omarchy-shell expose-switch hotCornerDelay 0            # 0-1000 ms of dwell before it fires
 omarchy-shell expose-switch moveCursorToWindow on       # on | off
 ```
+
+To trace window order and the Alt+Tab chord while debugging, set `"debugLogging": true` in the `expose.switch` entry of `~/.config/omarchy/shell.json` and read `journalctl --user | grep expose-switch`. It is off by default.
 
 After hiding the bottom text, you can restore it while Settings remains open. If you close Settings first, edit `~/.config/omarchy/shell.json` and set `"showFooter": true` in the `expose.switch` plugin entry.
 

@@ -78,10 +78,8 @@ Ui.BorderSurface {
         }
         onEntered: {
             card.hovered = true;
-            if (card.acceptsKeyboard) {
-                card.controller.hoveredIndex = card.slot;
-                card.controller.selectedIndex = card.slot;
-            }
+            if (card.acceptsKeyboard)
+                card.controller.hoverCard(card.slot);
         }
         onExited: {
             card.hovered = false;

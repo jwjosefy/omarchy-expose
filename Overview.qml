@@ -152,6 +152,14 @@ Item {
     readonly property string multiMonitorMode: root.pluginEntry && root.pluginEntry.multiMonitorMode === "per-monitor"
         ? "per-monitor"
         : "mirrored"
+    // "recent" lays cards out most recently used first, in reading order.
+    // "packed" is Exposé's original width-balanced arrangement.
+    readonly property string windowOrder: root.pluginEntry && root.pluginEntry.windowOrder === "packed"
+        ? "packed"
+        : "recent"
+    // Trace window order and the Alt+Tab chord to the shell log. Off unless
+    // "debugLogging": true is set in this plugin's shell.json entry.
+    readonly property bool debugLogging: Boolean(root.pluginEntry && root.pluginEntry.debugLogging === true)
     readonly property bool showFooter: !root.pluginEntry || root.pluginEntry.showFooter !== false
     property bool opened: false
     property bool surfaceMounted: false
@@ -162,6 +170,12 @@ Item {
     property int hoveredIndex: -1
     // "" | "held" (Alt+Tab opened, no extra step) | "armed" (Tab moved selection).
     property string altTabChord: ""
+    // The chord opened with no focused window in the grid, so the first step
+    // lands on the first card instead of skipping it.
+    property bool altTabBeforeFirst: false
+    // Window addresses, most recently focused first. Tracked while closed too,
+    // since the plugin stays loaded.
+    property var recentAddresses: []
     property var altTabLayout: null
     property var altTabLayoutToplevels: null
     property int previewIndex: -1
@@ -253,6 +267,40 @@ Item {
         root.hoveredIndex = -1;
         root.clearPreview();
         root.modelRevision++;
+        root.selectedIndex = Math.max(0, root.filteredToplevels.indexOf(Hyprland.activeToplevel));
+    }
+
+    Component.onCompleted: {
+        root.noteActiveToplevel();
+        recentSeed.running = true;
+    }
+
+    // Order windows focused before the shell started by Hyprland's focus history.
+    Process {
+        id: recentSeed
+        command: ["hyprctl", "-j", "clients"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                var clients = [];
+                try {
+                    clients = JSON.parse(this.text);
+                } catch (error) {
+                    console.warn(root.pluginId + ": could not read focus history: " + error);
+                    return;
+                }
+                root.recentAddresses = WindowModel.seedRecent(root.recentAddresses, clients);
+                if (root.debugLogging)
+                    root.debugLog("seeded recent=" + root.recentAddresses.join(","));
+            }
+        }
+    }
+
+    onWindowOrderChanged: {
+        if (!root.surfaceMounted && !root.openingPending)
+            return;
+        root.hoveredIndex = -1;
+        root.clearPreview();
+        root.resetSessionToplevels();
         root.selectedIndex = Math.max(0, root.filteredToplevels.indexOf(Hyprland.activeToplevel));
     }
 
@@ -349,7 +397,10 @@ Item {
     }
 
     function clearAltTabChord() {
+        if (root.debugLogging && root.altTabChord !== "")
+            root.debugLog("clear chord was=" + root.altTabChord + " at " + new Error().stack.split("\n").slice(1, 3).join(" < "));
         root.altTabChord = "";
+        root.altTabBeforeFirst = false;
     }
 
     function altTabListsMatch(layoutToplevels) {
@@ -370,6 +421,9 @@ Item {
         var order = [];
         for (var index = 0; index < count; index++)
             order.push(index);
+        // Recent order is laid out row by row, so list order is reading order.
+        if (root.windowOrder === "recent")
+            return order;
         var layout = root.altTabLayout;
         if (!layout || layout.length !== count || !root.altTabListsMatch(root.altTabLayoutToplevels))
             return order;
@@ -398,12 +452,26 @@ Item {
     }
 
     function beginAltTabChord() {
-        if (!root.opened && !root.openingPending)
+        if (root.debugLogging)
+            root.debugLog("open chord opened=" + root.opened + " pending=" + root.openingPending + " chord=" + root.altTabChord + " active=" + root.debugLabel(Hyprland.activeToplevel));
+        var opening = !root.opened && !root.openingPending;
+        if (opening)
             root.open("{}");
         root.altTabChord = "held";
+        root.altTabBeforeFirst = opening && root.filteredToplevels.indexOf(Hyprland.activeToplevel) < 0;
+    }
+
+    // A card that opens under a resting pointer also reports a hover. During
+    // the Alt+Tab chord that must not move the selection away from Tab's.
+    function hoverCard(slot) {
+        root.hoveredIndex = slot;
+        if (root.altTabChord === "")
+            root.selectedIndex = slot;
     }
 
     function stepAltTab(direction) {
+        if (root.debugLogging)
+            root.debugLog("step " + direction + " opened=" + root.opened + " pending=" + root.openingPending + " chord=" + root.altTabChord + " selected=" + root.selectedIndex + " beforeFirst=" + root.altTabBeforeFirst);
         if (!root.opened && !root.openingPending) {
             root.beginAltTabChord();
             return;
@@ -411,6 +479,14 @@ Item {
         if (root.altTabChord === "")
             root.altTabChord = "held";
         var order = root.altTabVisualOrder();
+        if (root.altTabBeforeFirst && order.length > 0) {
+            root.altTabBeforeFirst = false;
+            root.hoveredIndex = -1;
+            root.clearPreview();
+            root.selectedIndex = order[direction < 0 ? order.length - 1 : 0];
+            root.altTabChord = "armed";
+            return;
+        }
         if (order.length < 2)
             return;
         var current = root.selectedIndex;
@@ -428,6 +504,8 @@ Item {
     }
 
     function releaseAltTab() {
+        if (root.debugLogging)
+            root.debugLog("release chord=" + root.altTabChord + " selected=" + root.selectedIndex + " -> " + root.debugLabel(root.filteredToplevels[root.selectedIndex]) + " list=" + root.filteredToplevels.map(root.debugLabel).join(" | "));
         if (root.altTabChord !== "armed") {
             root.clearAltTabChord();
             return;
@@ -773,6 +851,12 @@ Item {
             root.updatePluginSetting("moveCursorToWindow", next);
     }
 
+    function setWindowOrder(value) {
+        var order = value === "packed" ? "packed" : "recent";
+        if (order !== root.windowOrder)
+            root.updatePluginSetting("windowOrder", order);
+    }
+
     function setMultiMonitorMode(value) {
         var mode = value === "per-monitor" ? "per-monitor" : "mirrored";
         if (mode !== root.multiMonitorMode)
@@ -1022,11 +1106,43 @@ Item {
         wayland.close();
     }
 
+    function debugLabel(top) {
+        if (!top)
+            return "null";
+        return WindowModel.addressFor(top) + "/" + WindowModel.appIdFor(top) + "/" + String(top.title || "").slice(0, 24);
+    }
+
+    // Callers check debugLogging first so no message is built while it is off.
+    function debugLog(message) {
+        console.log("[expose-switch] " + message);
+    }
+
+    function noteActiveToplevel() {
+        var address = WindowModel.addressFor(Hyprland.activeToplevel);
+        if (root.debugLogging)
+            root.debugLog("active -> " + root.debugLabel(Hyprland.activeToplevel) + " recent=" + root.recentAddresses.slice(0, 5).join(","));
+        if (address && root.recentAddresses[0] !== address)
+            root.recentAddresses = WindowModel.promoteRecent(root.recentAddresses, address, 256);
+    }
+
+    function pruneRecentAddresses() {
+        var live = {};
+        for (var index = 0; index < root.allToplevels.length; index++)
+            live[WindowModel.addressFor(root.allToplevels[index])] = true;
+        var next = root.recentAddresses.filter(function (address) { return live[address] === true; });
+        if (next.length !== root.recentAddresses.length)
+            root.recentAddresses = next;
+    }
+
     function resetSessionToplevels() {
         var next = [];
         for (var index = 0; index < root.allToplevels.length; index++)
             if (WindowModel.isEligible(root.allToplevels[index]))
                 next.push(root.allToplevels[index]);
+        if (root.windowOrder === "recent")
+            next = WindowModel.sortByRecent(next, root.recentAddresses);
+        if (root.debugLogging)
+            root.debugLog("session order=" + root.windowOrder + " recent=" + root.recentAddresses.slice(0, 5).join(",") + " -> " + next.map(root.debugLabel).join(" | "));
         root.sessionToplevels = next;
         root.captureSessionAspectRatios();
         root.modelRevision++;
@@ -1174,6 +1290,8 @@ Item {
     }
 
     function assignCompositionRows(entries, rowCount) {
+        if (root.windowOrder === "recent")
+            return root.assignRowsInOrder(entries, rowCount);
         var rows = [];
         for (var rowIndex = 0; rowIndex < rowCount; rowIndex++)
             rows.push({ entries: [], naturalWidth: 0 });
@@ -1202,6 +1320,27 @@ Item {
 
         for (var sortRow = 0; sortRow < rows.length; sortRow++)
             rows[sortRow].entries.sort(function (a, b) { return a.index - b.index; });
+        return rows;
+    }
+
+    // Consecutive cards share a row, so the grid reads in list order.
+    function assignRowsInOrder(entries, rowCount) {
+        var ordered = entries.slice();
+        ordered.sort(function (a, b) { return a.index - b.index; });
+        var widths = [];
+        for (var index = 0; index < ordered.length; index++)
+            widths.push(Math.sqrt(ordered[index].weight * ordered[index].ratio));
+        var partition = WindowModel.partitionInOrder(widths, rowCount);
+        var rows = [];
+        for (var rowIndex = 0; rowIndex < partition.length; rowIndex++) {
+            var row = { entries: [], naturalWidth: 0 };
+            for (var member = 0; member < partition[rowIndex].length; member++) {
+                var position = partition[rowIndex][member];
+                row.entries.push(ordered[position]);
+                row.naturalWidth += widths[position];
+            }
+            rows.push(row);
+        }
         return rows;
     }
 
@@ -1494,7 +1633,10 @@ Item {
 
     Connections {
         target: Hyprland.toplevels
-        function onValuesChanged() { root.handleToplevelCollectionChanged(); }
+        function onValuesChanged() {
+            root.pruneRecentAddresses();
+            root.handleToplevelCollectionChanged();
+        }
     }
 
     Instantiator {
@@ -1651,6 +1793,7 @@ Item {
         function onFocusedMonitorChanged() { root.handleDisplayStateChanged(); }
         function onFocusedWorkspaceChanged() { root.handleDisplayStateChanged(); }
         function onActiveToplevelChanged() {
+            root.noteActiveToplevel();
             if (!root.opened || root.altTabChord !== "")
                 return;
             var index = root.filteredToplevels.indexOf(Hyprland.activeToplevel);
@@ -1783,6 +1926,12 @@ Item {
             if (mode !== "on" && mode !== "off")
                 return "expected on or off";
             root.setMoveCursorToWindow(mode === "on");
+            return mode;
+        }
+        function windowOrder(mode: string): string {
+            if (mode !== "recent" && mode !== "packed")
+                return "expected recent or packed";
+            root.setWindowOrder(mode);
             return mode;
         }
         function multiMonitorMode(mode: string): string {

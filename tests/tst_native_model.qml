@@ -104,4 +104,51 @@ TestCase {
         verify(WindowModel.searchTextFor(toplevel).includes("window title"));
         toplevel.destroy();
     }
+
+    function test_promotesRecentAddressToFront() {
+        compare(WindowModel.promoteRecent([], "0xa", 3), ["0xa"]);
+        compare(WindowModel.promoteRecent(["0xa", "0xb", "0xc"], "0xc", 3), ["0xc", "0xa", "0xb"]);
+        compare(WindowModel.promoteRecent(["0xa", "0xb", "0xc"], "0xd", 3), ["0xd", "0xa", "0xb"]);
+    }
+
+    function test_sortsByRecentThenFocusHistory() {
+        var first = createToplevel({address: "a1", lastIpcObject: ({focusHistoryID: 3})});
+        var second = createToplevel({address: "b2", lastIpcObject: ({focusHistoryID: 1})});
+        var third = createToplevel({address: "c3", lastIpcObject: ({})});
+        var fourth = createToplevel({address: "d4", lastIpcObject: ({focusHistoryID: 0})});
+        var windows = [first, second, third, fourth];
+
+        compare(WindowModel.sortByRecent(windows, []), [fourth, second, first, third]);
+        compare(WindowModel.sortByRecent(windows, ["0xa1", "0xc3"]), [first, third, fourth, second]);
+        compare(WindowModel.sortByRecent([], ["0xa1"]), []);
+        for (var index = 0; index < windows.length; index++)
+            windows[index].destroy();
+    }
+
+    function test_partitionsRowsInOrder() {
+        compare(WindowModel.partitionInOrder([1, 1, 1, 1], 2), [[0, 1], [2, 3]]);
+        compare(WindowModel.partitionInOrder([3, 1, 1, 1], 2), [[0], [1, 2, 3]]);
+        compare(WindowModel.partitionInOrder([1, 2, 3], 1), [[0, 1, 2]]);
+        compare(WindowModel.partitionInOrder([1, 2], 5), [[0], [1]]);
+        var rows = WindowModel.partitionInOrder([1.2, 0.8, 1.6, 1, 1, 0.5, 1.3], 3);
+        var flat = [];
+        for (var row = 0; row < rows.length; row++) {
+            verify(rows[row].length > 0);
+            flat = flat.concat(rows[row]);
+        }
+        compare(flat, [0, 1, 2, 3, 4, 5, 6]);
+    }
+
+    function test_seedsRecentFromFocusHistory() {
+        var clients = [
+            {address: "0xc", focusHistoryID: 2},
+            {address: "0xa", focusHistoryID: 0},
+            {address: "bad", focusHistoryID: 1},
+            {address: "0xb", focusHistoryID: 1},
+            {address: "0xd"}
+        ];
+        compare(WindowModel.seedRecent([], clients), ["0xa", "0xb", "0xc"]);
+        compare(WindowModel.seedRecent(["0xc"], clients), ["0xc", "0xa", "0xb"]);
+        compare(WindowModel.seedRecent(["0xa"], null), ["0xa"]);
+    }
 }
